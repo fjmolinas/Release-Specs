@@ -29,7 +29,7 @@ if __name__ == "__main__":
     results = []
 
     try:
-        native_cmd = "make PORT={} BOARD=native term"
+        native_cmd = "sudo make PORT={} BOARD=native term"
         source = SingleHopNode(native_cmd.format("tap0"))
         dest = SingleHopNode(native_cmd.format("tap1"))
         for i in range(N):
