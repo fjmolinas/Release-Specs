@@ -19,18 +19,20 @@ def task04(riotbase, runs=1):
     os.chdir(os.path.join(riotbase, "examples/gnrc_networking"))
     try:
         exp = IoTLABExperiment("RIOT-release-test-04-04",
-                               [IoTLABNode(extra_modules=["gnrc_pktbuf_cmd"]),
-                                IoTLABNode(extra_modules=["gnrc_pktbuf_cmd"])])
+                               [IoTLABNode("iotlab-m3", "saclay",
+                                           ["gnrc_pktbuf_cmd"]),
+                                IoTLABNode("samr21-xpro", "saclay",
+                                           ["gnrc_pktbuf_cmd"])])
     except Exception as e:
         print(str(e))
         print("Can't start experiment")
         return
 
     try:
-        addrs = exp.nodes_addresses
-        iotlab_cmd = "make IOTLAB_NODE={} BOARD=iotlab-m3 term"
-        source = SixLoWPANNode(iotlab_cmd.format(addrs[0]))
-        dest = SixLoWPANNode(iotlab_cmd.format(addrs[1]))
+        nodes = exp.nodes
+        iotlab_cmd = "make IOTLAB_NODE=auto-ssh BOARD={} term"
+        source = SixLoWPANNode(iotlab_cmd.format(nodes[0].board))
+        dest = SixLoWPANNode(iotlab_cmd.format(nodes[1].board))
         results = []
 
         for run in range(runs):
