@@ -1,49 +1,54 @@
 import pexpect
 
+class RIOTNodeShellIfconfig():
 
-class GNRC:
+    def __init__(self, node):
+        self.term = node.term
+
+    def reboot(self):
+        self.term.sendline("reboot")
+        self.term.expect_exact("RIOT")
+
     def get_ip_addr(self):
-        self.pexpect.sendline("ifconfig")
-        self.pexpect.expect("inet6 addr: ([:0-9a-f]+) ")
-        ip_addr = self.pexpect.match.group(1)
+        self.term.sendline("ifconfig")
+        self.term.expect(r"inet6 addr: (?P<lladdr>[0-9a-fA-F:]+:[A-Fa-f:0-9]+)"
+                          "  scope: link  VAL")
+        ip_addr = self.term.match.group(1)
         return ip_addr
 
     def get_first_iface(self):
-        self.pexpect.sendline("ifconfig")
-        self.pexpect.expect("Iface  ([\\d]+)")
-        return int(self.pexpect.match.group(1))
+        self.term.sendline("ifconfig")
+        self.term.expect(r"Iface  ([\d]+)")
+        return int(self.term.match.group(1))
 
     def disable_rdv(self, iface):
-        self.pexpect.sendline("ifconfig {} -rtr_adv".format(iface))
-        self.pexpect.expect("success")
+        self.term.sendline("ifconfig {} -rtr_adv".format(iface))
+        self.term.expect_exact("success")
 
     def add_ip(self, iface, source):
-        self.pexpect.sendline("ifconfig {} add {}".format(iface, source))
-        self.pexpect.expect("success")
+        self.term.sendline("ifconfig {} add {}".format(iface, source))
+        self.term.expect_exact("success")
 
     def set_chan(self, iface, chan):
-        self.pexpect.sendline("ifconfig {} set chan {}".format(iface, chan))
-        self.pexpect.expect("success: set channel on interface {} to {}".format(
-                iface, chan
-            ))
+        self.term.sendline("ifconfig {} set chan {}".format(iface, chan))
+        self.term.expect_exact("success: set channel on interface {} to {}"
+                               .format(iface, chan))
 
     def add_nib_route(self, iface, route, ip_addr):
-        self.pexpect.sendline(
+        self.term.sendline(
                 "nib route add {} {} {}".format(iface, route, ip_addr))
 
     def ping(self, count, dest_addr, payload_size, delay):
-        self.pexpect.sendline(
-                "ping6 {} {} {} {}".format(
-                    count, dest_addr, payload_size, delay))
+        self.term.sendline("ping6 {} -s {} -i {} -c {} "
+                           .format(dest_addr, payload_size, delay, count))
         packet_loss = None
         for i in range(count+1):
-            exp = self.pexpect.expect(
-                    ["bytes from", "([\\d]+) packets transmitted, ([\\d]+) "
-                     "received, ([\\d]+)% packet loss", "timeout",
-                     pexpect.TIMEOUT], timeout=10)
-
+            exp = self.term.expect(
+                    ["bytes from",r"(\d+) packets transmitted, (\d+) packets received, (\d+)% packet loss",
+                     "timeout", pexpect.TIMEOUT],
+                    timeout=10)
             if exp == 1:
-                packet_loss = int(self.pexpect.match.group(3))
+                packet_loss = int(self.term.match.group(3))
                 break
             if exp == 2:
                 print("x", end="", flush=True)
@@ -52,20 +57,25 @@ class GNRC:
 
         return packet_loss
 
-class GNRC_UDP:
+
+class GNRC_UDP():
+
+    def __init__(self, node):
+        self.term = node
+
     def udp_server_start(self, port):
-        self.pexpect.sendline("udp server start {}".format(port))
-        self.pexpect.expect_exact(
+        self.term.sendline("udp server start {}".format(port))
+        self.term.expect_exact(
                 "Success: started UDP server on port {}".format(port)
             )
 
     def udp_server_stop(self):
-        self.pexpect.sendline("udp server stop")
+        self.term.sendline("udp server stop")
 
     def udp_server_check_output(self, count, delay_ms):
         packets_lost = 0
         for i in range(count):
-            exp = self.pexpect.expect([
+            exp = self.term.expect([
                    r"Packets received: \d+",
                    r"PKTDUMP: data received:\n"
                    r"~~ SNIP  0 - size:  \d+ byte, type: NETTYPE_UNDEF \(\d+\)\n"
@@ -88,7 +98,7 @@ class GNRC_UDP:
         return int((packets_lost / count) * 100)
 
     def udp_send(self, dest_addr, port, payload, count=1, delay_ms=1000):
-        self.pexpect.sendline(
+        self.term.sendline(
                 "udp send {} {} {} {} {}".format(
                     dest_addr, port, payload, count, delay_ms * 1000))
         try:
@@ -96,31 +106,35 @@ class GNRC_UDP:
             bytes = payload
         except ValueError:
             bytes = len(payload)
-        for i in range(count):
-            exp = self.pexpect.expect([
-                    "Success: sent {} byte\(s\) to \[{}\]:{}".format(
-                        bytes, dest_addr, port),
-                    "Success: send {} byte to \[{}\]:{}".format(
-                        bytes, dest_addr, port)
-                ])
+        for _ in range(count):
+            self.term.expect([
+                "Success: sent {} byte\(s\) to \[{}\]:{}".format(
+                    bytes, dest_addr, port),
+                "Success: send {} byte to \[{}\]:{}".format(
+                    bytes, dest_addr, port)
+            ])
 
 
-class PktBuf:
+class RIOTNodeShellPktbuf():
+
+    def __init__(self, node):
+        self.term = node
+
     def is_empty(self):
-        self.pexpect.sendline("pktbuf")
-        self.pexpect.expect(r"packet buffer: "
-                            r"first byte: 0x(?P<first_byte>[0-9A-Fa-f]+), "
-                            r"last byte: 0x[0-9A-Fa-f]+ "
-                            r"\(size: (?P<size>\d+)\)")
-        exp_first_byte = int(self.pexpect.match.group("first_byte"), base=16)
-        exp_size = int(self.pexpect.match.group("size"))
-        exp = self.pexpect.expect([r"~ unused: 0x(?P<first_byte>[0-9A-Fa-f]+) "
-                                   r"\(next: ((\(nil\))|0), "
-                                   r"size: (?P<size>\d+)\) ~",
-                                   pexpect.TIMEOUT])
+        self.term.sendline("pktbuf")
+        self.term.expect(r"packet buffer: "
+                         r"first byte: 0x(?P<first_byte>[0-9A-Fa-f]+), "
+                         r"last byte: 0x[0-9A-Fa-f]+ "
+                         r"\(size: (?P<size>\d+)\)")
+        exp_first_byte = int(self.term.match.group("first_byte"), base=16)
+        exp_size = int(self.term.match.group("size"))
+        exp = self.term.expect([r"~ unused: 0x(?P<first_byte>[0-9A-Fa-f]+) "
+                                r"\(next: ((\(nil\))|0), "
+                                r"size: (?P<size>\d+)\) ~",
+                                pexpect.TIMEOUT])
         if exp == 0:
-            first_byte = int(self.pexpect.match.group("first_byte"), base=16)
-            size = int(self.pexpect.match.group("size"))
+            first_byte = int(self.term.match.group("first_byte"), base=16)
+            size = int(self.term.match.group("size"))
             return (exp_first_byte == first_byte) and (exp_size == size)
         else:
             return False
