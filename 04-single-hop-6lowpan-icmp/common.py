@@ -1,13 +1,5 @@
-import argparse
 
-from testutils import Board
-from mixins import GNRC, PktBuf
 from time import sleep
-
-
-#Declare node
-class SixLoWPANNode(Board, GNRC, PktBuf):
-    pass
 
 
 def print_results(results):
@@ -32,9 +24,3 @@ def ping(source, dest, ip_dest, count, payload_size, delay, channel=26):
     packet_loss = source.ping(count, ip_dest.split("/")[0], payload_size, delay)
 
     return packet_loss, source.is_empty(), dest.is_empty()
-
-
-argparser = argparse.ArgumentParser()
-argparser.add_argument("--runs", "-n", help="Number of runs", type=int,
-                       default=1)
-argparser.add_argument("riotbase", help="Location of RIOT directory")
