@@ -8,29 +8,41 @@
 import sys
 import os
 
+from common import argparser, ping, print_results
+from mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf
+from iotlab import IOTLABNode, IoTLABExperiment
+
+
 COUNT           = 1000
 PAYLOAD_SIZE    = 0
 DELAY           = 100   # ms
 CHANNEL         = 26
 ERROR_TOLERANCE = 10    # %
 
+DEVNULL = open(os.devnull, 'w')
+
+class SixLoWPANShell(RIOTNodeShellIfconfig, RIOTNodeShellPktbuf):
+    pass
+
 
 def task01(riotbase, runs=1):
     os.chdir(os.path.join(riotbase, "examples/gnrc_networking"))
-    try:
-        exp = IoTLABExperiment("RIOT-release-test-04-01",
-                               [IoTLABNode(extra_modules=["gnrc_pktbuf_cmd"]),
-                                IoTLABNode(extra_modules=["gnrc_pktbuf_cmd"])])
-    except Exception as e:
-        print(str(e))
-        print("Can't start experiment")
-        return
+
+    env = {
+        'BOARD': 'iotlab-m3',
+        'USEMODULE' : 'gnrc_pktbuf_cmd',
+    }
+    nodes = [IOTLABNode(env=env), IOTLABNode(env=env)]
+
+    exp = IoTLABExperiment(name="RIOT-release-test-04-01", nodes=nodes)
+    exp.start()
 
     try:
-        addrs = exp.nodes_addresses
-        iotlab_cmd = "make IOTLAB_NODE={} BOARD=iotlab-m3 term"
-        source = SixLoWPANNode(iotlab_cmd.format(addrs[0]))
-        dest = SixLoWPANNode(iotlab_cmd.format(addrs[1]))
+        for node in nodes:
+            node.make_run(['flash'], stdout=DEVNULL, stderr=DEVNULL)
+            node.start_term()
+        source = SixLoWPANShell(nodes[0])
+        dest = SixLoWPANShell(nodes[1])
         results = []
 
         for run in range(runs):
@@ -50,14 +62,10 @@ def task01(riotbase, runs=1):
         print("FAILED")
         print(str(e))
     finally:
+        nodes[0].stop_term()
+        nodes[1].stop_term()
         exp.stop()
 
-
 if __name__ == "__main__":
-    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                 "../", "testutils"))
-    from iotlab import IoTLABNode, IoTLABExperiment
-    from common import argparser, SixLoWPANNode, ping, print_results
-
     args = argparser.parse_args()
     task01(**vars(args))
