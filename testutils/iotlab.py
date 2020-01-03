@@ -1,113 +1,119 @@
 import os
-import json
 import logging
-import subprocess
+
+from iotlabcli.auth import get_user_credentials
+from iotlabcli.rest import Api
+from iotlabcli.experiment import (submit_experiment, wait_experiment,
+                                  stop_experiment, get_experiment,
+                                  exp_resources, AliasNodes)
+
+import riotnode.node
 
 
-class IoTLABNode(object):
-    BOARD_ARCHI_MAP = {
-            "iotlab-m3": {"archi": "m3", "radio": "at86rf231"},
-            "samr21-xpro": {"archi": "samr21", "radio": "at86rf233"},
-            "arduino-zero": {"archi": "arduino-zero", "radio": "xbee"},
-        }
-    SITES = ["grenoble", "lille", "saclay"]
-
-    def __init__(self, board="iotlab-m3", site="grenoble",
-                 extra_modules=[]):
-        assert(board in IoTLABNode.BOARD_ARCHI_MAP)
-        assert(site in IoTLABNode.SITES)
-        self.board = board
-        self.site = site
-        self.extra_modules = extra_modules
-        self.exp = None
-        self.addr = None
-
-    def __repr__(self):
-        return "IoTLABNode(board={}, site={}, " \
-               "extra_modules={}, addr={})".format(
-                self.board, self.site, self.extra_modules, self.addr)
-
-    def addr_points_to_node(self, addr):
-        if self.addr is None:
-            if addr.startswith(
-                    IoTLABNode.BOARD_ARCHI_MAP[self.board]["archi"] + "-"):
-                self.addr = addr
-                return True
-            return False
-        else:
-            return addr == self.addr
-
-    def flash(self, addr):
-        assert(self.exp is not None)
-        env = os.environ
-        env["BOARD"] = self.board
-        env["USEMODULE"] = " ".join(self.extra_modules)
-        env["IOTLAB_NODE"] = addr
-        env["IOTLAB_EXP_ID"] = self.exp.exp_id
-        logging.info("Flashing test binary to {}".format(addr))
-        subprocess.run(["make", "flash"], env=env)
+class IOTLABNode(riotnode.node.RIOTNode):
+    """Extension of RIONode that has IOTLAB_NODE and IOTLAB_EXP_ID
+       to use 'flash', 'term', 'reset', ec. transparently"""
+    def __init__(self, application_directory='.', env=None):
+        super().__init__(application_directory, env)
 
     @property
-    def exp_param(self):
-        board = IoTLABNode.BOARD_ARCHI_MAP[self.board]
-        return "-l1,archi={}:{}+site={}".format(
-                board["archi"], board["radio"], self.site
-            )
+    def iotlab_node(self):
+        """Return the IOTLAB_NODE"""
+        return self.env['IOTLAB_NODE']
 
-
-# Thrown when there is an error with the *interaction* with the IoTLAB
-# experiment (e.g. if the iotlab-experiment command fails for any reason)
-class IoTLABExperimentError(Exception):
-    pass
+    @property
+    def exp_id(self):
+        """Return the IOTLAB_EXP_ID"""
+        return self.env['IOTLAB_EXP_ID']
 
 
 class IoTLABExperiment(object):
-    def __init__(self, name, nodes):
+    """Utility for running iotlab-experiments base on a list on IoTLABNodes"""
+
+    BOARD_ARCHI_MAP = {
+        'arduino-zero': {'name': 'arduino-zero', 'radio': 'xbee'},
+        'b-l072z-lrwan1': {'name': 'st-lrwan1', 'radio': 'sx1276'},
+        'b-l475e-iot01a': {'name': 'st-iotnode', 'radio': 'multi'},
+        'firefly': {'name': 'firefly'},
+        'frdm-kw41z': {'name': 'frdm-kw41z', 'radio': 'multi'},
+        'iotlab-a8-m3': {'name': 'a8', 'radio': 'at86rf231'},
+        'iotlab-m3': {'name': 'm3', 'radio': 'at86rf231'},
+        'microbit': {'name': 'microbit', 'radio': 'ble'},
+        'nrf51dk': {'name': 'nrf51dk', 'radio': 'ble'},
+        'nrf52dk': {'name': 'nrf52dk', 'radio': 'ble'},
+        'nrf52832-mdk': {'name': 'nrf52832mdk', 'radio': 'ble'},
+        'nrf52840dk': {'name': 'nrf52840dk', 'radio': 'multi'},
+        'nrf52840-mdk': {'name': 'nrf52840mdk', 'radio': 'multi'},
+        'pba-d-01-kw2x': {'name': 'phynode', 'radio': 'kw2xrf'},
+        'samr21-xpro': {'name': 'samr21', 'radio': 'at86rf233'},
+        'samr30-xpro': {'name': 'samr30', 'radio': 'at86rf212b'},
+        'wsn430-v1_3b': {'name': 'wsn430', 'radio': 'cc1101'},
+        'wsn430-v1_4': {'name': 'wsn430', 'radio': 'cc2420'},
+    }
+
+    SITES = ['grenoble', 'lille', 'saclay']
+
+    def __init__(self, name, nodes, site='saclay'):
+        assert(site in IoTLABExperiment.SITES)
         self.nodes = nodes
         self.name = name
+        self.site = site
         self.exp_id = None
-        try:
-            self.exp_id = subprocess.check_output(
-                    ["iotlab-experiment", "--jmespath", "@.id",
-                        "--format", "int", "submit", "-n", name, "-d", "30"] +
-                    [node.exp_param for node in nodes],
-                    stderr=subprocess.PIPE
-                ).strip().decode("utf-8")
-            logging.info("Waiting for experiment", self.exp_id,
-                         "to go to state \"Running\"")
-            subprocess.run(["iotlab-experiment", "wait", "-i", self.exp_id],
-                           stderr=subprocess.PIPE, check=True)
-            addrs = self._get_nodes_addresses()
-            for node in nodes:
-                addr = next(a for a in addrs if node.addr_points_to_node(a))
-                node.exp = self
-                node.flash(addr)
-                addrs.remove(addr)
-        except subprocess.CalledProcessError as e:
-            self.stop()
-            raise IoTLABExperimentError(e.stderr.decode("utf-8"))
-        self.exp_id = int(self.exp_id)
 
-    def __repr__(self):
-        return "IoTLABExperiment(name={}, exp_id={})".format(self.name,
-                                                             self.exp_id)
 
     def stop(self):
+        """If running stop the experiment"""
         if self.exp_id is not None:
-            subprocess.check_call(['iotlab-experiment', 'stop',
-                                   '-i', str(self.exp_id)])
+            ret = stop_experiment(Api(*get_user_credentials()), self.exp_id)
+            self.exp_id = None
+            return ret
 
-    @property
-    def nodes_addresses(self):
-        return [node.addr for node in self.nodes]
+    def start(self, duration=60):
+        """Submit an experiment, wait for it to be ready and map assigned
+           nodes """
+        logging.info("Submitting experiment")
+        self.exp_id = self._submit(site=self.site, duration=duration)
+        logging.info("Waiting for experiment {} to go to state \"Running\""
+                    .format(self.exp_id))
+        self._wait()
+        self._map_iotlab_nodes_to_RIOTNode()
 
-    def _get_nodes_addresses(self):
-        output = subprocess.check_output(
-                ['iotlab-experiment', 'get', '-i', str(self.exp_id), '-r'],
-            ).decode("utf-8")
-        res = json.loads(output)
-        addresses = []
-        for i in res["items"]:
-            addresses.append(i["network_address"])
+    def _wait(self):
+        """Wait for the experiment to finish launching"""
+        ret = wait_experiment(Api(*get_user_credentials()), self.exp_id)
+        return ret
 
-        return addresses
+    def _submit(self, site='saclay', duration=60):
+        """Submit an experiment with required nodes"""
+        boards = [node.board() for node in self.nodes]
+        api  = Api(*get_user_credentials())
+        resources = []
+        for board in boards:
+            alias = AliasNodes(1, site, self._iotlab_archi(board))
+            resources.append(exp_resources(alias))
+        return submit_experiment(api, self.name, duration, resources)['id']
+
+
+    def _map_iotlab_nodes_to_RIOTNode(self):
+        """Fetches nodes reserved by an experiment maps one to each IoTLABNode"""
+        addr_list = self._get_nodes()
+        for node in self.nodes:
+            addr = next(a for a in addr_list if self._valid_addr(node, a))
+            node.env['IOTLAB_EXP_ID'] = str(self.exp_id)
+            node.env['IOTLAB_NODE'] = str(addr)
+            addr_list.remove(addr)
+
+    def _get_nodes(self):
+        """Return all nodes for the experiment"""
+        ret = get_experiment(Api(*get_user_credentials()), self.exp_id)
+        return ret['nodes']
+
+    def _iotlab_archi(self, board):
+        """Return iotlab 'archi' format for BOARD"""
+        return '{}:{}'.format(IoTLABExperiment.BOARD_ARCHI_MAP[board]['name'], 
+                              IoTLABExperiment.BOARD_ARCHI_MAP[board]['radio'])
+    
+    def _valid_addr(self, node, addr):
+        """Check id addr matches a specific node BOARD"""
+        return addr.startswith(
+            IoTLABExperiment.BOARD_ARCHI_MAP[node.board()]['name'])
