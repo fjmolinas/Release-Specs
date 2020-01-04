@@ -40,21 +40,21 @@ class RIOTNodeShellIfconfig():
         self.term.sendline(
                 "nib route add {} {} {}".format(iface, route, ip_addr))
 
-    def _wait_for_ping(self):
+    def _wait_for_ping(self, timeout):
         return self.term.expect(
             [r"\d+ bytes from",
              r"(\d+) packets transmitted, (\d+) packets received(, \d+ duplicates)?, (?P<pktloss>\d+)% packet loss",
              "timeout",
              ],
-            timeout=30
+            timeout=timeout
             )
 
-    def ping(self, count, dest_addr, payload_size, delay):
+    def ping(self, count, dest_addr, payload_size, delay, timeout=10):
         self.term.sendline("ping6 {} -s {} -i {} -c {} "
                            .format(dest_addr, payload_size, delay, count))
         packet_loss = None
         while True:
-            exp = self._wait_for_ping()
+            exp = self._wait_for_ping(timeout)
             print(self.term.before)
             if exp == 1:
                 packet_loss = int(self.term.match.group("pktloss"))

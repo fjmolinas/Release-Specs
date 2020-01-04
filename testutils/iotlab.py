@@ -112,7 +112,7 @@ class IoTLABExperiment(object):
         """Return iotlab 'archi' format for BOARD"""
         return '{}:{}'.format(IoTLABExperiment.BOARD_ARCHI_MAP[board]['name'], 
                               IoTLABExperiment.BOARD_ARCHI_MAP[board]['radio'])
-    
+
     def _valid_addr(self, node, addr):
         """Check id addr matches a specific node BOARD"""
         return addr.startswith(

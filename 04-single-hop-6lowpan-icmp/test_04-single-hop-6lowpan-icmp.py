@@ -195,8 +195,6 @@ def test_task08(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
-# ping timeouts, need to figure that test out...
-@pytest.mark.xfail
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['iotlab-m3', 'iotlab-m3'])],
                          indirect=['nodes'])
@@ -209,7 +207,8 @@ def test_task09(nodes, RIOTNode_factory):
                                                  200,
                                                  1232,
                                                  0,
-                                                 26)
+                                                 26,
+                                                 ping_timeout=1000)
         assert(buf_source)
         assert(buf_dest)
 
