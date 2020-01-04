@@ -1,4 +1,6 @@
 import pexpect
+import time
+
 
 class RIOTNodeShellIfconfig():
 
@@ -38,23 +40,32 @@ class RIOTNodeShellIfconfig():
         self.term.sendline(
                 "nib route add {} {} {}".format(iface, route, ip_addr))
 
+    def _wait_for_ping(self):
+        return self.term.expect(
+            [r"\d+ bytes from",
+             r"(\d+) packets transmitted, (\d+) packets received(, \d+ duplicates)?, (?P<pktloss>\d+)% packet loss",
+             "timeout",
+             ],
+            timeout=30
+            )
+
     def ping(self, count, dest_addr, payload_size, delay):
         self.term.sendline("ping6 {} -s {} -i {} -c {} "
                            .format(dest_addr, payload_size, delay, count))
         packet_loss = None
-        for i in range(count+1):
-            exp = self.term.expect(
-                    ["bytes from",r"(\d+) packets transmitted, (\d+) packets received, (\d+)% packet loss",
-                     "timeout", pexpect.TIMEOUT],
-                    timeout=10)
+        while True:
+            exp = self._wait_for_ping()
+            print(self.term.before)
             if exp == 1:
-                packet_loss = int(self.term.match.group(3))
+                packet_loss = int(self.term.match.group("pktloss"))
+                print(packet_loss)
                 break
             if exp == 2:
-                print("x", end="", flush=True)
+                pass
+                # print("x", end="", flush=True)
             else:
-                print(".", end="", flush=True)
-
+                pass
+                # print(".", end="", flush=True)
         return packet_loss
 
 
@@ -120,21 +131,34 @@ class RIOTNodeShellPktbuf():
     def __init__(self, node):
         self.term = node
 
-    def is_empty(self):
+    def _is_empty(self):
         self.term.sendline("pktbuf")
         self.term.expect(r"packet buffer: "
                          r"first byte: 0x(?P<first_byte>[0-9A-Fa-f]+), "
                          r"last byte: 0x[0-9A-Fa-f]+ "
                          r"\(size: (?P<size>\d+)\)")
+        print(self.term.after)
         exp_first_byte = int(self.term.match.group("first_byte"), base=16)
         exp_size = int(self.term.match.group("size"))
         exp = self.term.expect([r"~ unused: 0x(?P<first_byte>[0-9A-Fa-f]+) "
                                 r"\(next: ((\(nil\))|0), "
                                 r"size: (?P<size>\d+)\) ~",
                                 pexpect.TIMEOUT])
+        print(self.term.after)
         if exp == 0:
             first_byte = int(self.term.match.group("first_byte"), base=16)
             size = int(self.term.match.group("size"))
             return (exp_first_byte == first_byte) and (exp_size == size)
         else:
             return False
+
+    def is_empty(self, timeout=3):
+        wait_until = time.time() + timeout
+        break_loop = False
+        empty_buf = False
+        while not break_loop:
+            time.sleep(3)
+            empty_buf = self._is_empty()
+            if wait_until < time.time() or empty_buf:
+                break_loop = True
+        return empty_buf
