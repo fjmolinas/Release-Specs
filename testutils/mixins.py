@@ -55,10 +55,9 @@ class RIOTNodeShellIfconfig():
         packet_loss = None
         while True:
             exp = self._wait_for_ping(timeout)
-            print(self.term.before)
             if exp == 1:
+                print(self.term.before + self.term.after)
                 packet_loss = int(self.term.match.group("pktloss"))
-                print(packet_loss)
                 break
             if exp == 2:
                 pass
