@@ -1,6 +1,7 @@
 import pytest
 
 import sys
+import time
 import os
 
 from common import ping, print_results
@@ -42,6 +43,8 @@ def RIOTNode_factory(nodes):
         node.env['USEMODULE'] = modules
         node.env['CFLAGS'] = cflags
         node.make_run(['flash'], stdout=DEVNULL, stderr=DEVNULL)
+        # Some boards need a delay to start
+        time.sleep(3)
         node.start_term()
         return SixLoWPANShell(node)
     return gnrc_node
@@ -56,10 +59,10 @@ def test_task01(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
-                                                 1000,
-                                                 0,
-                                                 20,
-                                                 26)
+                                                 count=1000,
+                                                 payload_size=0,
+                                                 delay=20,
+                                                 channel=26)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
@@ -73,10 +76,10 @@ def test_task02(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  'ff02::1',
-                                                 1000,
-                                                 50,
-                                                 100,
-                                                 17)
+                                                 count=1000,
+                                                 payload_size=50,
+                                                 delay=100,
+                                                 channel=17)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
@@ -90,10 +93,10 @@ def test_task03(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
-                                                 500,
-                                                 1000,
-                                                 300,
-                                                 26)
+                                                 count=500,
+                                                 payload_size=1000,
+                                                 delay=300,
+                                                 channel=26)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
@@ -107,16 +110,15 @@ def test_task04(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
-                                                 10000,
-                                                 100,
-                                                 100,
-                                                 26)
+                                                 count=10000,
+                                                 payload_size=100,
+                                                 delay=100,
+                                                 channel=26)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
 
 @pytest.mark.local_only
-@pytest.mark.xfail
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'remote-revb'])],
                          indirect=['nodes'])
@@ -126,16 +128,15 @@ def test_task05(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
-                                                 1000,
-                                                 50,
-                                                 100,
-                                                 26)
+                                                 count=1000,
+                                                 payload_size=50,
+                                                 delay=100,
+                                                 channel=26)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
 
 @pytest.mark.local_only
-@pytest.mark.xfail
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'remote-revb'])],
                          indirect=['nodes'])
@@ -145,10 +146,10 @@ def test_task06(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  'ff02::1',
-                                                 1000,
-                                                 50,
-                                                 100,
-                                                 17)
+                                                 count=1000,
+                                                 payload_size=50,
+                                                 delay=100,
+                                                 channel=17)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
@@ -166,10 +167,10 @@ def test_task07(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  'ff02::1',
-                                                 1000,
-                                                 50,
-                                                 150,
-                                                 17)
+                                                 count=1000,
+                                                 payload_size=50,
+                                                 delay=150,
+                                                 channel=17)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
@@ -187,10 +188,10 @@ def test_task08(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
-                                                 1000,
-                                                 100,
-                                                 100,
-                                                 26)
+                                                 count=1000,
+                                                 payload_size=100,
+                                                 delay=100,
+                                                 channel=26)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
@@ -204,10 +205,10 @@ def test_task09(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
-                                                 200,
-                                                 1232,
-                                                 0,
-                                                 26,
+                                                 count=200,
+                                                 payload_size=1232,
+                                                 delay=0,
+                                                 channel=26,
                                                  ping_timeout=1000)
         assert(buf_source)
         assert(buf_dest)
@@ -224,11 +225,12 @@ def test_task10(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
-                                                 200,
-                                                 2048,
-                                                 600,
-                                                 26,
-                                                 100)
+                                                 count=200,
+                                                 payload_size=2048,
+                                                 delay=600,
+                                                 channel=26,
+                                                 ping_timeout=100,
+                                                 empty_wait=1000)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
