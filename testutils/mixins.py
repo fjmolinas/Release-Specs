@@ -60,15 +60,13 @@ class RIOTNodeShellIfconfig():
                 packet_loss = int(self.term.match.group("pktloss"))
                 break
             if exp == 2:
-                pass
-                # print("x", end="", flush=True)
+                print("x", end="", flush=True)
             else:
-                pass
-                # print(".", end="", flush=True)
+                print(".", end="", flush=True)
         return packet_loss
 
 
-class GNRC_UDP():
+class RIOTNodeShellUdp():
 
     def __init__(self, node):
         self.term = node
@@ -103,7 +101,7 @@ class GNRC_UDP():
             if exp in [0, 1]:
                 print(".", end="", flush=True)
             else:
-                packets_lost += 0
+                packets_lost += 1
                 print("x", end="", flush=True)
         return int((packets_lost / count) * 100)
 
@@ -117,12 +115,13 @@ class GNRC_UDP():
         except ValueError:
             bytes = len(payload)
         for _ in range(count):
-            self.term.expect([
-                "Success: sent {} byte\(s\) to \[{}\]:{}".format(
+            self.term.expect_exact([
+                "Success: sent {} byte(s) to [{}]:{}".format(
                     bytes, dest_addr, port),
-                "Success: send {} byte to \[{}\]:{}".format(
+                "Success: send {} byte to [{}]:{}".format(
                     bytes, dest_addr, port)
             ])
+            print(".", end="", flush=True)
 
 
 class RIOTNodeShellPktbuf():
@@ -136,14 +135,14 @@ class RIOTNodeShellPktbuf():
                          r"first byte: 0x(?P<first_byte>[0-9A-Fa-f]+), "
                          r"last byte: 0x[0-9A-Fa-f]+ "
                          r"\(size: (?P<size>\d+)\)")
-        print(self.term.after)
+        print(self.term.before + self.term.after)
         exp_first_byte = int(self.term.match.group("first_byte"), base=16)
         exp_size = int(self.term.match.group("size"))
         exp = self.term.expect([r"~ unused: 0x(?P<first_byte>[0-9A-Fa-f]+) "
                                 r"\(next: ((\(nil\))|0), "
                                 r"size: (?P<size>\d+)\) ~",
                                 pexpect.TIMEOUT])
-        print(self.term.after)
+        print(self.term.before + self.term.after)
         if exp == 0:
             first_byte = int(self.term.match.group("first_byte"), base=16)
             size = int(self.term.match.group("size"))
