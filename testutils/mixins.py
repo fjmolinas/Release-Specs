@@ -82,9 +82,8 @@ class RIOTNodeShellUdp():
 
     def udp_server_check_output(self, count, delay_ms):
         packets_lost = 0
-        for i in range(count):
+        for _ in range(count):
             exp = self.term.expect([
-                   r"Packets received: \d+",
                    r"PKTDUMP: data received:\n"
                    r"~~ SNIP  0 - size:  \d+ byte, type: NETTYPE_UNDEF \(\d+\)\n"
                    r".*\n"
@@ -127,7 +126,7 @@ class RIOTNodeShellUdp():
 class RIOTNodeShellPktbuf():
 
     def __init__(self, node):
-        self.term = node
+        self.term = node.term
 
     def _is_empty(self):
         self.term.sendline("pktbuf")
