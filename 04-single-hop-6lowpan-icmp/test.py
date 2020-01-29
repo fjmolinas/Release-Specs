@@ -25,7 +25,7 @@ def nodes(local, request):
     if local is True:
         yield nodes
     else:
-        exp = IoTLABExperiment(name="RIOT-release-test-04-01", nodes=nodes)
+        exp = IoTLABExperiment(name="RIOT-release-test-04", nodes=nodes)
         exp.start()
         yield nodes
         exp.stop()
@@ -47,7 +47,11 @@ def RIOTNode_factory(nodes):
         time.sleep(3)
         node.start_term()
         return SixLoWPANShell(node)
-    return gnrc_node
+    
+    yield gnrc_node
+    
+    for node in nodes:
+        node.stop_term()
 
 
 @pytest.mark.parametrize('nodes',
@@ -154,7 +158,6 @@ def test_task06(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
-@pytest.mark.xfail
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'arduino-zero'])],
                          indirect=['nodes'])
@@ -175,7 +178,6 @@ def test_task07(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
-@pytest.mark.xfail
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'arduino-zero'])],
                          indirect=['nodes'])
@@ -189,7 +191,7 @@ def test_task08(nodes, RIOTNode_factory):
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
                                                  count=1000,
-                                                 payload_size=100,
+                                                 payload_size=50,
                                                  delay=100,
                                                  channel=26)
         assert(packet_loss < 10)
