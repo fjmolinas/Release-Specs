@@ -1,14 +1,7 @@
-from testutils import Board
-from mixins import GNRC, PktBuf
 from time import sleep
 
 PAYLOAD_SIZE = 1024
 DELAY = 10
-
-
-# Declare node
-class SingleHopNode(Board, GNRC, PktBuf):
-    pass
 
 
 def print_results(results):
@@ -25,36 +18,38 @@ def print_results(results):
         sum(packet_losses)/len(packet_losses)))
 
 
-def single_hop_run(source, dest, ip_src, ip_dest,
-                   src_route, dest_route, disable_rdv, count):
-    source.reboot()
+def single_hop_run(src, dest, ip_src, ip_dest, src_route, dest_route, rdv,
+                   count, payload_size, delay=10, ping_timeout=10, empty_wait=3):
+    src.reboot()
     dest.reboot()
 
-    # Get useful information
-    iface = source.get_first_iface()
+    # give some time after reboot
+    sleep(3)
+
+    # get useful information
+    src_ifc = src.get_first_iface()
+    dest_ifc = dest.get_first_iface()
     ip_src_ll = dest.get_ip_addr()
-    ip_dest_ll = source.get_ip_addr()
+    ip_dest_ll = src.get_ip_addr()
 
-    if disable_rdv:
-        # Disable router advertisement
-        source.disable_rdv(iface)
-        dest.disable_rdv(iface)
+    # disable router advertisement
+    if rdv is False:
+        src.disable_rdv(src_ifc)
+        dest.disable_rdv(dest_ifc)
 
-    # Add static IP addresses
-    if(ip_src):
-        source.add_ip(iface, ip_src)
+    # add static IP addresses
+    if ip_src:
+        src.add_ip(src_ifc, ip_src)
+    if ip_dest:
+        dest.add_ip(dest_ifc, ip_dest)
 
-    if(ip_dest):
-        dest.add_ip(iface, ip_dest)
-
-    # Sleep 1 second before sending data
+    # sleep 1 second before sending data
     sleep(1)
 
-    # Add nib routes
-    source.add_nib_route(iface, src_route, ip_src_ll)
-    dest.add_nib_route(iface, dest_route, ip_dest_ll)
+    # add nib routes
+    src.add_nib_route(src_ifc, src_route, ip_src_ll)
+    dest.add_nib_route(dest_ifc, dest_route, ip_dest_ll)
 
-    packet_loss = source.ping(
-            count, ip_dest.split("/")[0], PAYLOAD_SIZE, DELAY)
+    packet_loss = src.ping(count, ip_dest.split("/")[0], payload_size, delay, ping_timeout)
 
-    return (packet_loss, source.is_empty(), dest.is_empty())
+    return (packet_loss, src.is_empty(), dest.is_empty())
