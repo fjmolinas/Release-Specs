@@ -1,5 +1,5 @@
-import os
 import logging
+import re
 
 from iotlabcli.auth import get_user_credentials
 from iotlabcli.rest import Api
@@ -12,24 +12,23 @@ import riotnode.node
 
 class IOTLABNode(riotnode.node.RIOTNode):
     """Extension of RIONode that has IOTLAB_NODE and IOTLAB_EXP_ID
-       to use 'flash', 'term', 'reset', ec. transparently"""
+       to use 'flash', 'term', 'reset', etc. transparently"""
     def __init__(self, application_directory='.', env=None):
         super().__init__(application_directory, env)
 
     @property
     def iotlab_node(self):
-        """Return the IOTLAB_NODE"""
-        return self.env['IOTLAB_NODE']
+        """Return IOTLAB_NODE"""
+        return self.env.get('IOTLAB_NODE')
 
     @property
     def exp_id(self):
         """Return the IOTLAB_EXP_ID"""
-        return self.env['IOTLAB_EXP_ID']
+        return self.env.get('IOTLAB_EXP_ID')
 
 
 class IoTLABExperiment(object):
-    """Utility for running iotlab-experiments base on a list on IoTLABNodes"""
-
+    """Utility for running iotlab-experiments base don a list of IoTLABNodes"""
     BOARD_ARCHI_MAP = {
         'arduino-zero': {'name': 'arduino-zero', 'radio': 'xbee'},
         'b-l072z-lrwan1': {'name': 'st-lrwan1', 'radio': 'sx1276'},
@@ -54,12 +53,76 @@ class IoTLABExperiment(object):
     SITES = ['grenoble', 'lille', 'saclay']
 
     def __init__(self, name, nodes, site='saclay'):
-        assert(site in IoTLABExperiment.SITES)
+        IoTLABExperiment._check_site(site)
+        self.site = site
+        IoTLABExperiment._check_nodes(site, nodes)
         self.nodes = nodes
         self.name = name
-        self.site = site
         self.exp_id = None
 
+    @staticmethod
+    def _check_site(site):
+        if site not in IoTLABExperiment.SITES:
+            raise ValueError("iotlab site must be one of {}"
+                             .format(IoTLABExperiment.SITES))
+
+    @staticmethod
+    def valid_board(board):
+        return board in IoTLABExperiment.BOARD_ARCHI_MAP
+
+    @staticmethod
+    def valid_iotlab_node(iotlab_node, site, board=None):
+        if site not in iotlab_node:
+            raise ValueError("All nodes must be on the same site")
+        if board is not None:
+            if IoTLABExperiment._board_from_iotlab_node(iotlab_node) != board:
+                raise ValueError("IOTLAB_NODE doesn't match BOARD")
+
+    @staticmethod
+    def _board_from_iotlab_node(iotlab_node):
+        """Return BOARD matching iotlab_node"""
+        reg = r'([0-9a-zA-Z\-]+)-\d+\.[a-z]+\.iot-lab\.info'
+        match = re.search(reg, iotlab_node)
+        iotlab_node_name = match.group(1)
+        dict_values = IoTLABExperiment.BOARD_ARCHI_MAP.values()
+        dict_names = [value['name'] for value in dict_values]
+        dict_keys = list(IoTLABExperiment.BOARD_ARCHI_MAP.keys())
+        return dict_keys[dict_names.index(iotlab_node_name)]
+
+    @staticmethod
+    def _archi_from_board(board):
+        """Return iotlab 'archi' format for BOARD"""
+        return '{}:{}'.format(IoTLABExperiment.BOARD_ARCHI_MAP[board]['name'],
+                              IoTLABExperiment.BOARD_ARCHI_MAP[board]['radio'])
+
+    @staticmethod
+    def _valid_addr(node, addr):
+        """Check id addr matches a specific node BOARD"""
+        return addr.startswith(
+            IoTLABExperiment.BOARD_ARCHI_MAP[node.board()]['name'])
+
+    @staticmethod
+    def _check_nodes(site, nodes):
+        """Takes a list of nodes and validates BOARD or IOTLAB_EXP_ID"""
+        for node in nodes:
+            # If BOARD is set it must be supported in iotlab
+            if node.board() is not None:
+                if not IoTLABExperiment.valid_board(node.board()):
+                    raise ValueError("{} BOARD unsupported in iotlab")
+                if node.iotlab_node is not None:
+                    IoTLABExperiment.valid_iotlab_node(node.iotlab_node,
+                                                       site,
+                                                       node.board())
+            elif node.iotlab_node is not None:
+                IoTLABExperiment.valid_iotlab_node(node.iotlab_node, site)
+                try:
+                    board = IoTLABExperiment._board_from_iotlab_node(
+                        node.iotlab_node)
+                    node.env['BOARD'] = board
+                except KeyError:
+                    raise ValueError("Invalid IOLTAB_NODE")
+            else:
+                raise ValueError("BOARD or IOTLAB_EXP_ID must be set")
 
     def stop(self):
         """If running stop the experiment"""
@@ -70,50 +133,47 @@ class IoTLABExperiment(object):
 
     def start(self, duration=60):
         """Submit an experiment, wait for it to be ready and map assigned
-           nodes """
+           nodes"""
         logging.info("Submitting experiment")
         self.exp_id = self._submit(site=self.site, duration=duration)
         logging.info("Waiting for experiment {} to go to state \"Running\""
-                    .format(self.exp_id))
+                     .format(self.exp_id))
         self._wait()
-        self._map_iotlab_nodes_to_RIOTNode()
+        self._map_iotlab_nodes_to_RIOTNode(self._get_nodes())
 
     def _wait(self):
         """Wait for the experiment to finish launching"""
         ret = wait_experiment(Api(*get_user_credentials()), self.exp_id)
         return ret
 
-    def _submit(self, site='saclay', duration=60):
+    def _submit(self, site, duration):
         """Submit an experiment with required nodes"""
-        boards = [node.board() for node in self.nodes]
-        api  = Api(*get_user_credentials())
+        api = Api(*get_user_credentials())
         resources = []
-        for board in boards:
-            alias = AliasNodes(1, site, self._iotlab_archi(board))
-            resources.append(exp_resources(alias))
+        for node in self.nodes:
+            if node.iotlab_node is not None:
+                resources.append(exp_resources([node.iotlab_node]))
+            elif node.board() is not None:
+                board = IoTLABExperiment._archi_from_board(node.board())
+                alias = AliasNodes(1, site, board)
+                resources.append(exp_resources(alias))
+            else:
+                raise ValueError("neither BOARD or IOTLAB_NODE are set")
         return submit_experiment(api, self.name, duration, resources)['id']
 
-
-    def _map_iotlab_nodes_to_RIOTNode(self):
-        """Fetches nodes reserved by an experiment maps one to each IoTLABNode"""
-        addr_list = self._get_nodes()
+    def _map_iotlab_nodes_to_RIOTNode(self, iotlab_nodes):
+        """Fetch reserved nodes and map each one to an IoTLABNode"""
         for node in self.nodes:
-            addr = next(a for a in addr_list if self._valid_addr(node, a))
+            if node.iotlab_node in iotlab_nodes:
+                iotlab_nodes.remove(node.iotlab_node)
+            else:
+                for iotlab_node in iotlab_nodes:
+                    if IoTLABExperiment._valid_addr(node, iotlab_node):
+                        iotlab_nodes.remove(iotlab_node)
+                        node.env['IOTLAB_NODE'] = str(iotlab_node)
             node.env['IOTLAB_EXP_ID'] = str(self.exp_id)
-            node.env['IOTLAB_NODE'] = str(addr)
-            addr_list.remove(addr)
 
     def _get_nodes(self):
-        """Return all nodes for the experiment"""
+        """Return all nodes reserved by the experiment"""
         ret = get_experiment(Api(*get_user_credentials()), self.exp_id)
         return ret['nodes']
-
-    def _iotlab_archi(self, board):
-        """Return iotlab 'archi' format for BOARD"""
-        return '{}:{}'.format(IoTLABExperiment.BOARD_ARCHI_MAP[board]['name'], 
-                              IoTLABExperiment.BOARD_ARCHI_MAP[board]['radio'])
-
-    def _valid_addr(self, node, addr):
-        """Check id addr matches a specific node BOARD"""
-        return addr.startswith(
-            IoTLABExperiment.BOARD_ARCHI_MAP[node.board()]['name'])
