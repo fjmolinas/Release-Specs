@@ -4,9 +4,9 @@ import sys
 import time
 import os
 
-from common import ping, print_results
-from mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf
-from iotlab import IOTLABNode, IoTLABExperiment
+from common import ping
+from testutils.mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf
+from testutils.iotlab import IOTLABNode, IoTLABExperiment
 
 
 DEVNULL = open(os.devnull, 'w')
@@ -32,11 +32,9 @@ def nodes(local, request):
         exp.stop()
 
 @pytest.fixture
-def RIOTNode_factory(nodes):
+def RIOTNode_factory(nodes, riotbase):
     def gnrc_node(i, board_type=None, application_dir="tests/gnrc_udp",
                   modules='gnrc_pktbuf_cmd', cflags=None, port=None):
-        riotbase = os.environ.get('RIOTBASE', None)
-        os.chdir(os.path.join(riotbase, application_dir))
         if board_type is not None:
             node = next(n for n in nodes if n.board() == board_type)
         else:
@@ -46,6 +44,7 @@ def RIOTNode_factory(nodes):
             node.env['CFLAGS'] = cflags
         if port is not None:
             node.env['PORT'] = port
+        node._application_directory = os.path.join(riotbase, application_dir)
         node.make_run(['flash'], stdout=DEVNULL, stderr=DEVNULL)
         # Some boards need a delay to start
         time.sleep(3)
@@ -58,7 +57,6 @@ def RIOTNode_factory(nodes):
         node.stop_term()
 
 
-@pytest.mark.sudo_only
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['native', 'native'])],
@@ -68,7 +66,7 @@ def test_task01(nodes, RIOTNode_factory):
     for i in range(0, 2):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
-                                                 'ff2::1',
+                                                 'ff02::1',
                                                  count=1000,
                                                  payload_size=0,
                                                  delay=10)
@@ -76,7 +74,7 @@ def test_task01(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
-@pytest.mark.sudo_only
+
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['native', 'native'])],
@@ -94,7 +92,7 @@ def test_task02(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
-@pytest.mark.sudo_only
+
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['native', 'native'])],
@@ -113,7 +111,6 @@ def test_task03(nodes, RIOTNode_factory):
         assert(buf_dest)
 
 
-@pytest.mark.sudo_only
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['native', 'native'])],
