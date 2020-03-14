@@ -16,13 +16,14 @@ class SixLoWPANShell(RIOTNodeShellIfconfig, RIOTNodeShellPktbuf):
 
 
 @pytest.fixture
-def nodes(local, request):
+def nodes(local, request, boards):
     nodes = []
-    for param in request.param:
-        if IoTLABExperiment.valid_board(param):
-            env = {'BOARD': '{}'.format(param)}
+    boards_input = boards if boards else request.param
+    for board in boards_input:
+        if IoTLABExperiment.valid_board(board):
+            env = {'BOARD': '{}'.format(board)}
         else:
-            env = {'IOTLAB_NODE': '{}'.format(param)}
+            env = {'IOTLAB_NODE': '{}'.format(board)}
         nodes.append(IOTLABNode(env=env))
     if local is True:
         yield nodes
@@ -38,7 +39,6 @@ def RIOTNode_factory(nodes, riotbase):
     def gnrc_node(i, board_type=None,
                   application_dir="examples/gnrc_networking",
                   modules='gnrc_pktbuf_cmd', cflags=''):
-        # os.chdir(os.path.join(riotbase, application_dir))
         if board_type is not None:
             node = next(n for n in nodes if n.board() == board_type)
         else:
@@ -59,9 +59,7 @@ def RIOTNode_factory(nodes, riotbase):
 
 
 @pytest.mark.parametrize('nodes',
-                         [pytest.param([
-                             'm3-1.saclay.iot-lab.info',
-                             'm3-2.saclay.iot-lab.info'])],
+                         [pytest.param(['iotlab-m3', 'iotlab-m3'])],
                          indirect=['nodes'])
 def test_task01(nodes, RIOTNode_factory):
     nodes = [RIOTNode_factory(0), RIOTNode_factory(1)]
