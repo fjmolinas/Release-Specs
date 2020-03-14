@@ -1,8 +1,6 @@
-import pytest
-
-import sys
-import time
 import os
+import pytest
+import time
 
 from common import ping
 from testutils.mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf
@@ -16,11 +14,12 @@ IOTLAB_EXPERIMENT_DURATION = 120
 class SixLoWPANShell(RIOTNodeShellIfconfig, RIOTNodeShellPktbuf):
     pass
 
+
 @pytest.fixture
 def nodes(local, request):
     nodes = []
     for board in request.param:
-        env = { 'BOARD': '{}'.format(board) }
+        env = {'BOARD': '{}'.format(board)}
         nodes.append(IOTLABNode(env=env))
     # Start iot-lab experiment if requested
     if local is True:
@@ -30,6 +29,7 @@ def nodes(local, request):
         exp.start(duration=IOTLAB_EXPERIMENT_DURATION)
         yield nodes
         exp.stop()
+
 
 @pytest.fixture
 def RIOTNode_factory(nodes, riotbase):
@@ -50,9 +50,9 @@ def RIOTNode_factory(nodes, riotbase):
         time.sleep(3)
         node.start_term()
         return SixLoWPANShell(node)
-    
+
     yield gnrc_node
-    
+
     for node in nodes:
         node.stop_term()
 
@@ -62,7 +62,8 @@ def RIOTNode_factory(nodes, riotbase):
                          [pytest.param(['native', 'native'])],
                          indirect=['nodes'])
 def test_task01(nodes, RIOTNode_factory):
-    nodes = [RIOTNode_factory(0, port='tap0'), RIOTNode_factory(1, port='tap1')]
+    nodes = [RIOTNode_factory(0, port='tap0'),
+             RIOTNode_factory(1, port='tap1')]
     for i in range(0, 2):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
@@ -80,7 +81,8 @@ def test_task01(nodes, RIOTNode_factory):
                          [pytest.param(['native', 'native'])],
                          indirect=['nodes'])
 def test_task02(nodes, RIOTNode_factory):
-    nodes = [RIOTNode_factory(0, port='tap0'), RIOTNode_factory(1, port='tap1')]
+    nodes = [RIOTNode_factory(0, port='tap0'),
+             RIOTNode_factory(1, port='tap1')]
     for i in range(0, 2):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
@@ -98,7 +100,8 @@ def test_task02(nodes, RIOTNode_factory):
                          [pytest.param(['native', 'native'])],
                          indirect=['nodes'])
 def test_task03(nodes, RIOTNode_factory):
-    nodes = [RIOTNode_factory(0, port='tap0'), RIOTNode_factory(1, port='tap1')]
+    nodes = [RIOTNode_factory(0, port='tap0'),
+             RIOTNode_factory(1, port='tap1')]
     for i in range(0, 2):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
@@ -128,7 +131,7 @@ def test_task06(nodes, RIOTNode_factory):
         packet_loss, buf_source, buf_dest = ping(nodes[i],
                                                  nodes[i ^ 1],
                                                  nodes[i ^ 1].get_ip_addr(),
-                                                 count= 1000,
+                                                 count=1000,
                                                  payload_size=2000,
                                                  delay=100,
                                                  empty_wait=30)
