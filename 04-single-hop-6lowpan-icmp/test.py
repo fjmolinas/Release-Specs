@@ -1,12 +1,11 @@
 import pytest
 
-import sys
 import time
 import os
 
-from common import ping, print_results
-from mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf
-from iotlab import IOTLABNode, IoTLABExperiment
+from common import ping
+from testutils.mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf
+from testutils.iotlab import IOTLABNode, IoTLABExperiment
 
 
 DEVNULL = open(os.devnull, 'w')
@@ -19,8 +18,11 @@ class SixLoWPANShell(RIOTNodeShellIfconfig, RIOTNodeShellPktbuf):
 @pytest.fixture
 def nodes(local, request):
     nodes = []
-    for board in request.param:
-        env = { 'BOARD': '{}'.format(board) }
+    for param in request.param:
+        if IoTLABExperiment.valid_board(param):
+            env = {'BOARD': '{}'.format(param)}
+        else:
+            env = {'IOTLAB_NODE': '{}'.format(param)}
         nodes.append(IOTLABNode(env=env))
     if local is True:
         yield nodes
@@ -30,32 +32,36 @@ def nodes(local, request):
         yield nodes
         exp.stop()
 
+
 @pytest.fixture
-def RIOTNode_factory(nodes):
-    def gnrc_node(i, board_type=None, application_dir="examples/gnrc_networking",
+def RIOTNode_factory(nodes, riotbase):
+    def gnrc_node(i, board_type=None,
+                  application_dir="examples/gnrc_networking",
                   modules='gnrc_pktbuf_cmd', cflags=''):
-        riotbase = os.environ.get('RIOTBASE', None)
-        os.chdir(os.path.join(riotbase, application_dir))
+        # os.chdir(os.path.join(riotbase, application_dir))
         if board_type is not None:
             node = next(n for n in nodes if n.board() == board_type)
         else:
             node = nodes[i]
         node.env['USEMODULE'] = modules
         node.env['CFLAGS'] = cflags
+        node._application_directory = os.path.join(riotbase, application_dir)
         node.make_run(['flash'], stdout=DEVNULL, stderr=DEVNULL)
         # Some boards need a delay to start
         time.sleep(3)
         node.start_term()
         return SixLoWPANShell(node)
-    
+
     yield gnrc_node
-    
+
     for node in nodes:
         node.stop_term()
 
 
 @pytest.mark.parametrize('nodes',
-                         [pytest.param(['iotlab-m3', 'iotlab-m3'])],
+                         [pytest.param([
+                             'm3-1.saclay.iot-lab.info',
+                             'm3-2.saclay.iot-lab.info'])],
                          indirect=['nodes'])
 def test_task01(nodes, RIOTNode_factory):
     nodes = [RIOTNode_factory(0), RIOTNode_factory(1)]
@@ -70,6 +76,7 @@ def test_task01(nodes, RIOTNode_factory):
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
+
 
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'iotlab-m3'])],
@@ -88,6 +95,7 @@ def test_task02(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
+
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['iotlab-m3', 'iotlab-m3'])],
                          indirect=['nodes'])
@@ -105,6 +113,7 @@ def test_task03(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
+
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'iotlab-m3'])],
                          indirect=['nodes'])
@@ -121,6 +130,7 @@ def test_task04(nodes, RIOTNode_factory):
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
+
 
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
@@ -140,6 +150,7 @@ def test_task05(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
+
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'remote-revb'])],
@@ -157,6 +168,7 @@ def test_task06(nodes, RIOTNode_factory):
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
+
 
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'arduino-zero'])],
@@ -178,6 +190,7 @@ def test_task07(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
+
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['samr21-xpro', 'arduino-zero'])],
                          indirect=['nodes'])
@@ -198,6 +211,7 @@ def test_task08(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
+
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['iotlab-m3', 'iotlab-m3'])],
                          indirect=['nodes'])
@@ -214,6 +228,7 @@ def test_task09(nodes, RIOTNode_factory):
                                                  ping_timeout=1000)
         assert(buf_source)
         assert(buf_dest)
+
 
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['iotlab-m3', 'iotlab-m3'])],
