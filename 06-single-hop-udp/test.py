@@ -1,11 +1,11 @@
+import os
+import time
 import pytest
 
-import sys
-import time
-import os
-
 from common import udp_send
-from testutils.mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf, RIOTNodeShellUdp
+from testutils.mixins import RIOTNodeShellIfconfig
+from testutils.mixins import RIOTNodeShellPktbuf
+from testutils.mixins import RIOTNodeShellUdp
 from testutils.iotlab import IOTLABNode, IoTLABExperiment
 
 
@@ -37,6 +37,7 @@ def nodes(local, request, boards):
         yield nodes
         exp.stop()
 
+
 @pytest.fixture
 def RIOTNode_factory(nodes, riotbase):
     def gnrc_node(i, board_type=None, application_dir="tests/gnrc_udp",
@@ -56,9 +57,9 @@ def RIOTNode_factory(nodes, riotbase):
         time.sleep(3)
         node.start_term()
         return SixLoWPANShell(node)
-    
+
     yield gnrc_node
-    
+
     for node in nodes:
         node.stop_term()
 
@@ -69,16 +70,18 @@ def RIOTNode_factory(nodes, riotbase):
 def test_task01(nodes, RIOTNode_factory):
     nodes = [RIOTNode_factory(0), RIOTNode_factory(1)]
     for i in range(0, 2):
-        packet_loss, buf_source, buf_dest = udp_send(nodes[i],
-                                                 nodes[i ^ 1],
-                                                 nodes[i ^ 1].get_ip_addr(),
-                                                 port=1337,
-                                                 count=1000,
-                                                 payload_size=1024,
-                                                 delay=1000)
+        packet_loss, buf_source, buf_dest = udp_send(
+                                                nodes[i],
+                                                nodes[i ^ 1],
+                                                nodes[i ^ 1].get_ip_addr(),
+                                                port=1337,
+                                                count=1000,
+                                                payload_size=1024,
+                                                delay=1000)
         assert(packet_loss < 5)
         assert(buf_source)
         assert(buf_dest)
+
 
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['iotlab-m3', 'iotlab-m3'])],
@@ -86,13 +89,14 @@ def test_task01(nodes, RIOTNode_factory):
 def test_task02(nodes, RIOTNode_factory):
     nodes = [RIOTNode_factory(0), RIOTNode_factory(1)]
     for i in range(0, 2):
-        packet_loss, buf_source, buf_dest = udp_send(nodes[i],
-                                                 nodes[i ^ 1],
-                                                 nodes[i ^ 1].get_ip_addr(),
-                                                 port=61616,
-                                                 count=1000,
-                                                 payload_size=1024,
-                                                 delay=1000)
+        packet_loss, buf_source, buf_dest = udp_send(
+                                                nodes[i],
+                                                nodes[i ^ 1],
+                                                nodes[i ^ 1].get_ip_addr(),
+                                                port=61616,
+                                                count=1000,
+                                                payload_size=1024,
+                                                delay=1000)
         assert(packet_loss < 5)
         assert(buf_source)
         assert(buf_dest)
@@ -128,23 +132,27 @@ def test_task04(nodes, RIOTNode_factory):
                                 delay=0)
     assert(buf_source)
 
+
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['native', 'native'])],
                          indirect=['nodes'])
 def test_task05(nodes, RIOTNode_factory):
-    nodes = [RIOTNode_factory(0, port='tap0'), RIOTNode_factory(1, port='tap1')]
+    nodes = [RIOTNode_factory(0, port='tap0'),
+             RIOTNode_factory(1, port='tap1')]
     for i in range(0, 2):
-        packet_loss, buf_source, buf_dest = udp_send(nodes[i],
-                                                     nodes[i ^ 1],
-                                                     nodes[i ^ 1].get_ip_addr(),
-                                                     port=1337,
-                                                     count=10,
-                                                     payload_size=0,
-                                                     delay=100)
+        packet_loss, buf_source, buf_dest = udp_send(
+                                                nodes[i],
+                                                nodes[i ^ 1],
+                                                nodes[i ^ 1].get_ip_addr(),
+                                                port=1337,
+                                                count=10,
+                                                payload_size=0,
+                                                delay=100)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
+
 
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['iotlab-m3', 'iotlab-m3'])],
@@ -152,13 +160,14 @@ def test_task05(nodes, RIOTNode_factory):
 def test_task06(nodes, RIOTNode_factory):
     nodes = [RIOTNode_factory(0), RIOTNode_factory(1)]
     for i in range(0, 2):
-        packet_loss, buf_source, buf_dest = udp_send(nodes[i],
-                                                     nodes[i ^ 1],
-                                                     nodes[i ^ 1].get_ip_addr(),
-                                                     port=1337,
-                                                     count=10,
-                                                     payload_size=0,
-                                                     delay=100)
+        packet_loss, buf_source, buf_dest = udp_send(
+                                                nodes[i],
+                                                nodes[i ^ 1],
+                                                nodes[i ^ 1].get_ip_addr(),
+                                                port=1337,
+                                                count=10,
+                                                payload_size=0,
+                                                delay=100)
         assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
