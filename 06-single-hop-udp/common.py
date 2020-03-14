@@ -1,10 +1,4 @@
-def print_results(results):
-    packet_losses = [results[i][0] for i in range(len(results))]
-    print("Summary of {packet losses, source pktbuf sanity, dest pktbuf sanity}:")
-    for i in range(len(results)):
-        print("Run {}: {} {} {}".format(i+1, packet_losses[i], results[i][1], results[i][2]))
-    print("")
-    print("Average packet losses: {}".format(sum(packet_losses)/len(packet_losses)))
+from time import sleep
 
 
 def udp_send(src, dest, ip_dest, port, count, payload_size, delay):
@@ -16,6 +10,9 @@ def udp_send(src, dest, ip_dest, port, count, payload_size, delay):
     if dest is not None:
         dest.reboot()
         dest.udp_server_start(port)
+
+    # Wait a little before sending udp messages
+    sleep(3)
 
     src.udp_send(ip_dest, port, payload_size, count, delay)
     if dest is not None:

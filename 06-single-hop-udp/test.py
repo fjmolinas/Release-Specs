@@ -4,9 +4,9 @@ import sys
 import time
 import os
 
-from common import udp_send, print_results
-from mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf, RIOTNodeShellUdp
-from iotlab import IOTLABNode, IoTLABExperiment
+from common import udp_send
+from testutils.mixins import RIOTNodeShellIfconfig, RIOTNodeShellPktbuf, RIOTNodeShellUdp
+from testutils.iotlab import IOTLABNode, IoTLABExperiment
 
 
 DEVNULL = open(os.devnull, 'w')
@@ -20,12 +20,15 @@ class SixLoWPANShell(RIOTNodeShellIfconfig,
 
 
 @pytest.fixture
-def nodes(local, request):
+def nodes(local, request, boards):
     nodes = []
-    for board in request.param:
-        env = { 'BOARD': '{}'.format(board) }
+    boards_input = boards if boards else request.param
+    for board in boards_input:
+        if IoTLABExperiment.valid_board(board):
+            env = {'BOARD': '{}'.format(board)}
+        else:
+            env = {'IOTLAB_NODE': '{}'.format(board)}
         nodes.append(IOTLABNode(env=env))
-    # Start iot-lab experiment if requested
     if local is True:
         yield nodes
     else:
@@ -35,11 +38,9 @@ def nodes(local, request):
         exp.stop()
 
 @pytest.fixture
-def RIOTNode_factory(nodes):
+def RIOTNode_factory(nodes, riotbase):
     def gnrc_node(i, board_type=None, application_dir="tests/gnrc_udp",
                   modules='gnrc_pktbuf_cmd', cflags=None, port=None):
-        riotbase = os.environ.get('RIOTBASE', None)
-        os.chdir(os.path.join(riotbase, application_dir))
         if board_type is not None:
             node = next(n for n in nodes if n.board() == board_type)
         else:
@@ -49,6 +50,7 @@ def RIOTNode_factory(nodes):
             node.env['CFLAGS'] = cflags
         if port is not None:
             node.env['PORT'] = port
+        node._application_directory = os.path.join(riotbase, application_dir)
         node.make_run(['flash'], stdout=DEVNULL, stderr=DEVNULL)
         # Some boards need a delay to start
         time.sleep(3)
@@ -95,7 +97,7 @@ def test_task02(nodes, RIOTNode_factory):
         assert(buf_source)
         assert(buf_dest)
 
-@pytest.mark.sudo_only
+
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['native'])],
@@ -126,7 +128,6 @@ def test_task04(nodes, RIOTNode_factory):
                                 delay=0)
     assert(buf_source)
 
-@pytest.mark.sudo_only
 @pytest.mark.local_only
 @pytest.mark.parametrize('nodes',
                          [pytest.param(['native', 'native'])],
