@@ -28,7 +28,8 @@ class IOTLABNode(riotnode.node.RIOTNode):
 
 
 class IoTLABExperiment(object):
-    """Utility for running iotlab-experiments base don a list of IoTLABNodes"""
+    """Utility for running iotlab-experiments based on a list of IoTLABNodes
+       expects BOARD or IOTLAB_NODE variable to be set for received nodes"""
     BOARD_ARCHI_MAP = {
         'arduino-zero': {'name': 'arduino-zero', 'radio': 'xbee'},
         'b-l072z-lrwan1': {'name': 'st-lrwan1', 'radio': 'sx1276'},
@@ -103,7 +104,7 @@ class IoTLABExperiment(object):
 
     @staticmethod
     def _check_nodes(site, nodes):
-        """Takes a list of nodes and validates BOARD or IOTLAB_EXP_ID"""
+        """Takes a list of nodes and validates BOARD or IOTLAB_NODE"""
         for node in nodes:
             # If BOARD is set it must be supported in iotlab
             if node.board() is not None:
@@ -122,7 +123,7 @@ class IoTLABExperiment(object):
                 except KeyError:
                     raise ValueError("Invalid IOLTAB_NODE")
             else:
-                raise ValueError("BOARD or IOTLAB_EXP_ID must be set")
+                raise ValueError("BOARD or IOTLAB_NODE must be set")
 
     def stop(self):
         """If running stop the experiment"""
