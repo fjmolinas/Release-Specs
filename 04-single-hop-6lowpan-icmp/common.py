@@ -1,22 +1,19 @@
-
-def print_results(results):
-    packet_losses = [results[i][0] for i in range(len(results))]
-    print("Summary of {packet losses, source pktbuf sanity, dest pktbuf sanity}:")
-    for i in range(len(results)):
-        print("Run {}: {} {} {}".format(i+1, packet_losses[i], results[i][1], results[i][2]))
-    print("")
-    print("Average packet losses: {}".format(sum(packet_losses)/len(packet_losses)))
+from time import sleep
 
 
-def ping(source, dest, ip_dest, count, payload_size, delay, channel=26, ping_timeout=10, empty_wait=3):
+def ping(source, dest, ip_dest, count, payload_size, delay,
+         channel=26, ping_timeout=10, empty_wait=3):
+    # Reboot nodes before ping
     source.reboot()
     dest.reboot()
 
     # Set channel
-    iface = source.get_first_iface()
-    source.set_chan(iface, channel)
-    iface = dest.get_first_iface()
-    dest.set_chan(iface, channel)
+    source.set_chan(source.get_first_iface(), channel)
+    dest.set_chan(dest.get_first_iface(), channel)
 
-    packet_loss = source.ping(count, ip_dest.split("/")[0], payload_size, delay, ping_timeout)
+    # Wait a little before starting to ping
+    sleep(3)
+
+    packet_loss = source.ping(count, ip_dest.split("/")[0], payload_size,
+                              delay, ping_timeout)
     return packet_loss, source.is_empty(empty_wait), dest.is_empty(empty_wait)
