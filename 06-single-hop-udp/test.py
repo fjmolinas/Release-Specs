@@ -23,17 +23,20 @@ class SixLoWPANShell(RIOTNodeShellIfconfig,
 def nodes(local, request, boards):
     nodes = []
     boards_input = boards if boards else request.param
-    for board in boards_input:
-        if IoTLABExperiment.valid_board(board):
-            env = {'BOARD': '{}'.format(board)}
-        else:
-            env = {'IOTLAB_NODE': '{}'.format(board)}
-        nodes.append(IOTLABNode(env=env))
     if local is True:
+        for board in boards_input:
+            env = {'BOARD': '{}'.format(board)}
+            nodes.append(IOTLABNode(env=env))
         yield nodes
     else:
-        exp = IoTLABExperiment(name="RIOT-release-test-06", nodes=nodes)
-        exp.start(duration=IOTLAB_EXPERIMENT_DURATION)
+        for board in boards_input:
+            if IoTLABExperiment.valid_board(board):
+                env = {'BOARD': '{}'.format(board)}
+            else:
+                env = {'IOTLAB_NODE': '{}'.format(board)}
+            nodes.append(IOTLABNode(env=env))
+        exp = IoTLABExperiment(name="RIOT-release-test-04", nodes=nodes)
+        exp.start()
         yield nodes
         exp.stop()
 
