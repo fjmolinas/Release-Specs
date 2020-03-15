@@ -108,3 +108,23 @@ task-02.02   2015-09-04   2eb21d8f9694146deca8c69cbc4a82acd62d395f   success
 ...
 
 ```
+
+Pytest runner
+-------------
+
+To use pytest to run the test install the local pkg `pip install .`, `riotnode`
+package will also need to be installed.
+
+By default experiments will be launched on iot-lab saclay site since it has most
+of the boards used in the release-specs.
+
+```
+usage: pytest [--boards] [--local] [--riotbase RIOTBASE]
+
+optional arguments:
+  --riotbase            RIOT directory to test, default uses environment
+                        variable RIOTBASE.
+  --boards              String list of boards to use for the test, can be
+                        IOTLAB_NODE or RIOT BOARDs.
+  --local               Use local boards, default=False (will use iotlab)
+```
