@@ -27,12 +27,12 @@ def single_hop_run(src, dest, ip_src, ip_dest, src_route, dest_route, rdv,
     if ip_dest:
         dest.add_ip(dest_ifc, ip_dest)
 
-    # sleep 1 second before sending data
-    sleep(1)
-
     # add nib routes
     src.add_nib_route(src_ifc, src_route, ip_dest_ll)
     dest.add_nib_route(dest_ifc, dest_route, ip_src_ll)
+
+    # sleep 1 second before sending data
+    sleep(1)
 
     packet_loss = src.ping(count, ip_dest.split("/")[0], payload_size,
                            delay, ping_timeout)

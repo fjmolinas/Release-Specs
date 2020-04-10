@@ -31,7 +31,7 @@ def nodes(local, request, boards):
             else:
                 env = {'IOTLAB_NODE': '{}'.format(board)}
             nodes.append(IOTLABNode(env=env))
-        exp = IoTLABExperiment(name="RIOT-release-test-04", nodes=nodes)
+        exp = IoTLABExperiment(name="RIOT-release-test-05", nodes=nodes)
         exp.start()
         yield nodes
         exp.stop()
@@ -80,6 +80,7 @@ def test_task01(nodes, RIOTNode_factory):
                                                            '::',
                                                            rdv=False,
                                                            count=100,
+                                                           delay=10,
                                                            payload_size=1000)
         assert(packet_loss < 1)
         assert(buf_source)
@@ -100,8 +101,9 @@ def test_task02(nodes, RIOTNode_factory):
                                                            '::',
                                                            rdv=False,
                                                            count=100,
+                                                           delay=300,
                                                            payload_size=1000)
-        assert(packet_loss < 1)
+        assert(packet_loss < 10)
         assert(buf_source)
         assert(buf_dest)
 
@@ -122,6 +124,7 @@ def test_task03(nodes, RIOTNode_factory):
                                                            'beef::/64',
                                                            rdv=False,
                                                            count=10,
+                                                           delay=10,
                                                            payload_size=1000)
         assert(packet_loss < 1)
         assert(buf_source)
@@ -141,7 +144,8 @@ def test_task04(nodes, RIOTNode_factory):
                                                            '::',
                                                            '::',
                                                            rdv=False,
-                                                           count=100,
+                                                           count=10,
+                                                           delay=300,
                                                            payload_size=1000)
         assert(packet_loss < 1)
         assert(buf_source)
