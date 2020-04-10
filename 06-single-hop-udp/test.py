@@ -10,7 +10,7 @@ from testutils.iotlab import IOTLABNode, IoTLABExperiment
 
 
 DEVNULL = open(os.devnull, 'w')
-IOTLAB_EXPERIMENT_DURATION = 120
+IOTLAB_EXPERIMENT_DURATION = 180
 
 
 class SixLoWPANShell(RIOTNodeShellIfconfig,
@@ -35,8 +35,8 @@ def nodes(local, request, boards):
             else:
                 env = {'IOTLAB_NODE': '{}'.format(board)}
             nodes.append(IOTLABNode(env=env))
-        exp = IoTLABExperiment(name="RIOT-release-test-04", nodes=nodes)
-        exp.start()
+        exp = IoTLABExperiment(name="RIOT-release-test-06", nodes=nodes)
+        exp.start(duration=IOTLAB_EXPERIMENT_DURATION)
         yield nodes
         exp.stop()
 
