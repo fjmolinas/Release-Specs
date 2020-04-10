@@ -33,6 +33,9 @@ def nodes(local, request):
 
 @pytest.fixture
 def RIOTNode_factory(nodes, riotbase):
+
+    factory_nodes = []
+
     def gnrc_node(i, board_type=None, application_dir="tests/gnrc_udp",
                   modules='gnrc_pktbuf_cmd', cflags=None, port=None):
         if board_type is not None:
@@ -49,12 +52,17 @@ def RIOTNode_factory(nodes, riotbase):
         # Some boards need a delay to start
         time.sleep(3)
         node.start_term()
+        factory_nodes.append(node)
         return SixLoWPANShell(node)
 
     yield gnrc_node
 
-    for node in nodes:
-        node.stop_term()
+    for node in factory_nodes:
+        try:
+            node.stop_term()
+        except RuntimeError:
+            # Process had to be forced kill, happens with native
+            pass
 
 
 @pytest.mark.local_only
