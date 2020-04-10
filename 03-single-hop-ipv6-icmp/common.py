@@ -3,7 +3,7 @@ import time
 
 
 def ping(source, dest, ip_dest, count, payload_size, delay, ping_timeout=10,
-         empty_wait=3):
+         empty_wait=12):
     source.reboot()
     dest.reboot()
 
