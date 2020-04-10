@@ -8,6 +8,8 @@ class RIOTNodeShellIfconfig():
         self.term = node.term
 
     def reboot(self):
+        self.term.sendline("\n")
+        self.term.expect_exact(">")
         self.term.sendline("reboot")
         self.term.expect_exact("RIOT")
 
