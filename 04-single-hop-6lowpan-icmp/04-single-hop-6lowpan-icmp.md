@@ -92,7 +92,7 @@ a samr21-xpro node.
 * Channel:                26
 * Count:                  1000
 * Interval:               100ms
-* Payload:                100B
+* Payload:                50B
 * Destination Address:    Link local unicast (fe80::.../64)
 
 ### Result

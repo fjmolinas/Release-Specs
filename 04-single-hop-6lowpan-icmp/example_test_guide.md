@@ -116,7 +116,7 @@ Task #06 (Experimental) - ICMPv6 link-local echo with samr21-xpro/remote
 
 ICMPv6 echo request/reply exchange between a `samr21-xpro` a `remote-revb`
 
-1. Ping from the src to the dest `ping6 -c 1000 -i 100 -s 100 <ll_addr>`
+1. Ping from the src to the dest `ping6 -c 1000 -i 100 -s 50 <ll_addr>`
 2. Record the packet loss and timings, it should be less then 10%
 3. check the packet buffer with `pktbuf`
 
