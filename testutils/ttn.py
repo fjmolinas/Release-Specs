@@ -72,5 +72,14 @@ class TTNClient:
         except IndexError as err:
             raise RuntimeError("Uplink queue empty") from err
 
+    def pop_uplink_payload_and_counter(self):
+        try:
+            msg = self.msg.pop()
+            base64_payload = msg["payload_raw"]
+            payload = base64.b64decode(base64_payload).decode('ascii')
+            return payload, msg["counter"]
+        except IndexError:
+            return None, -1
+
     def downlink_ack_received(self):
         return self.ack

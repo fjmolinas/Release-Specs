@@ -145,6 +145,16 @@ def test_pop_uplink_payload(ttn_client):
         ttn_client.pop_uplink_payload()
 
 
+def test_pop_uplink_payload_and_counter(ttn_client):
+    ttn_client.mqtt.gen_server_push(TOPIC_UPLINK, JSON_UPLINK)
+    payload, counter = ttn_client.pop_uplink_payload_and_counter()
+    assert payload == BASE64_PAYLOAD
+    assert counter == 2
+    payload, counter = ttn_client.pop_uplink_payload_and_counter()
+    assert payload is None
+    assert counter == -1
+
+
 def test_downlink_ack_received(ttn_client):
     assert not ttn_client.ack
 
